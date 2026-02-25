@@ -1,11 +1,16 @@
 from typing import Annotated
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, constr
+from pydantic import BaseModel, EmailStr, StringConstraints
 
 class UserCreate(BaseModel):
     email: EmailStr
-    full_name: Annotated[str, constr(min_length=3, max_length=50)]
-    password: Annotated[str, constr(min_length=8, max_length=128)]
+    full_name: Annotated[str, StringConstraints(min_length=3, max_length=50, strip_whitespace=True)]
+    password: Annotated[str, StringConstraints(min_length=8, max_length=128)]
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: Annotated[str, StringConstraints(min_length=1, max_length=128)]
 
 class UserResponse(BaseModel):
     id: int
@@ -16,3 +21,9 @@ class UserResponse(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class AuthResponse(BaseModel):
+    user: UserResponse
+    access_token: str
+    token_type: str = "bearer"
