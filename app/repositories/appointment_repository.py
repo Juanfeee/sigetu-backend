@@ -25,6 +25,28 @@ class AppointmentRepository:
             .all()
         )
 
+    def get_history_by_student_id(self, db: Session, student_id: int) -> list[Appointment]:
+        return (
+            db.query(Appointment)
+            .filter(
+                Appointment.student_id == student_id,
+                Appointment.status.in_(["atendido", "no_asistio", "finalizada", "cancelada"]),
+            )
+            .order_by(Appointment.created_at.desc())
+            .all()
+        )
+
+    def get_current_by_student_id(self, db: Session, student_id: int) -> list[Appointment]:
+        return (
+            db.query(Appointment)
+            .filter(
+                Appointment.student_id == student_id,
+                Appointment.status.in_(["pendiente", "llamando", "en_atencion"]),
+            )
+            .order_by(Appointment.created_at.desc())
+            .all()
+        )
+
     def get_queue(self, db: Session, sede: str, programa_academico: str | None = None) -> list[Appointment]:
         query = (
             db.query(Appointment)
@@ -41,8 +63,32 @@ class AppointmentRepository:
 
         return query.all()
 
+    def get_queue_history(self, db: Session, sede: str, programa_academico: str | None = None) -> list[Appointment]:
+        query = (
+            db.query(Appointment)
+            .join(User, Appointment.student_id == User.id)
+            .filter(
+                Appointment.sede == sede,
+                Appointment.status.in_(["atendido", "no_asistio", "finalizada", "cancelada"]),
+            )
+            .order_by(Appointment.created_at.desc())
+        )
+
+        if programa_academico is not None:
+            query = query.filter(User.programa_academico == programa_academico)
+
+        return query.all()
+
     def update_status(self, db: Session, appointment: Appointment, status: str) -> Appointment:
         appointment.status = status
+        db.commit()
+        db.refresh(appointment)
+        return appointment
+
+    def update(self, db: Session, appointment: Appointment, **fields) -> Appointment:
+        for field_name, field_value in fields.items():
+            if field_value is not None:
+                setattr(appointment, field_name, field_value)
         db.commit()
         db.refresh(appointment)
         return appointment
