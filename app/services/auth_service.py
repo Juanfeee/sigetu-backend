@@ -1,7 +1,11 @@
 from fastapi import HTTPException
+from jose import JWTError, jwt
+from datetime import datetime
 from sqlalchemy.orm import Session
 from app.repositories.user_repository import UserRepository
-from app.core.security import hash_password, verify_password, create_access_token
+from app.repositories.revoked_token_repository import RevokedTokenRepository
+from app.core.config import ALGORITHM, SECRET_KEY
+from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
 from app.models.role_model import Role
 
 class AuthService:
@@ -10,6 +14,39 @@ class AuthService:
 
     def __init__(self):
         self.user_repo = UserRepository()
+        self.revoked_token_repo = RevokedTokenRepository()
+
+    def _extract_refresh_payload(self, refresh_token: str) -> dict:
+        try:
+            payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        except JWTError as exc:
+            raise HTTPException(status_code=401, detail="Refresh token inválido o expirado") from exc
+
+        if payload.get("token_type") != "refresh":
+            raise HTTPException(status_code=401, detail="Token no válido para renovación")
+
+        sub = payload.get("sub")
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+
+        if not sub or not jti or exp is None:
+            raise HTTPException(status_code=401, detail="Refresh token inválido")
+
+        expires_at = datetime.utcfromtimestamp(exp)
+
+        return {
+            "sub": sub,
+            "jti": jti,
+            "expires_at": expires_at,
+        }
+
+    def _build_token_pair(self, email: str, role: str) -> dict:
+        token_payload = {"sub": email, "role": role}
+        return {
+            "access_token": create_access_token(token_payload),
+            "refresh_token": create_refresh_token(token_payload),
+            "token_type": "bearer",
+        }
 
     def register(
         self,
@@ -45,7 +82,7 @@ class AuthService:
             programa_academico=programa_academico,
         )
 
-        token = create_access_token({"sub": user.email, "role": user.role.name})
+        tokens = self._build_token_pair(email=user.email, role=user.role.name)
 
         return {
             "user": {
@@ -56,8 +93,7 @@ class AuthService:
                 "is_active": user.is_active,
                 "created_at": user.created_at,
             },
-            "access_token": token,
-            "token_type": "bearer",
+            **tokens,
         }
 
     def login(self, db: Session, email: str, password: str):
@@ -69,7 +105,7 @@ class AuthService:
         if not user.is_active:
             raise HTTPException(status_code=403, detail="Usuario inactivo")
 
-        token = create_access_token({"sub": user.email, "role": user.role.name})
+        tokens = self._build_token_pair(email=user.email, role=user.role.name)
 
         return {
             "user": {
@@ -80,6 +116,37 @@ class AuthService:
                 "is_active": user.is_active,
                 "created_at": user.created_at,
             },
-            "access_token": token,
-            "token_type": "bearer",
+            **tokens,
         }
+
+    def refresh(self, db: Session, refresh_token: str) -> dict:
+        refresh_payload = self._extract_refresh_payload(refresh_token)
+
+        if self.revoked_token_repo.is_revoked(db, refresh_payload["jti"]):
+            raise HTTPException(status_code=401, detail="Refresh token revocado")
+
+        user = self.user_repo.get_by_email(db, refresh_payload["sub"])
+        if not user:
+            raise HTTPException(status_code=401, detail="Usuario no encontrado")
+
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail="Usuario inactivo")
+
+        self.revoked_token_repo.revoke(
+            db=db,
+            jti=refresh_payload["jti"],
+            expires_at=refresh_payload["expires_at"],
+        )
+
+        return self._build_token_pair(email=user.email, role=user.role.name)
+
+    def logout(self, db: Session, refresh_token: str) -> dict:
+        refresh_payload = self._extract_refresh_payload(refresh_token)
+
+        self.revoked_token_repo.revoke(
+            db=db,
+            jti=refresh_payload["jti"],
+            expires_at=refresh_payload["expires_at"],
+        )
+
+        return {"detail": "Sesión cerrada correctamente"}

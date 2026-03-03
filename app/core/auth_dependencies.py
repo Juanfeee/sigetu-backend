@@ -22,7 +22,8 @@ def get_current_token_payload(token: str = Depends(oauth2_scheme)) -> dict:
 
     sub = payload.get("sub")
     role = payload.get("role")
-    if not sub or not role:
+    token_type = payload.get("token_type", "access")
+    if not sub or not role or token_type != "access":
         raise credentials_exception
 
     return payload

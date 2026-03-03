@@ -63,6 +63,7 @@ class AppointmentResponse(BaseModel):
 class AppointmentQueueItem(BaseModel):
     id: int
     student_name: str | None = None
+    secretaria_name: str | None = None
     turn_number: str
     category: CategoryType
     context: str

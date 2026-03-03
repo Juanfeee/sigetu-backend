@@ -26,7 +26,8 @@ Crea/edita el archivo `.env` en la raíz:
 DATABASE_URL=postgresql://postgres:12345678@localhost:5432/sigetu
 SECRET_KEY=tu_secret_key_larga
 ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
+ACCESS_TOKEN_EXPIRE_MINUTES=10080
+REFRESH_TOKEN_EXPIRE_DAYS=7
 ```
 
 ## 3) Ejecutar migraciones
@@ -67,6 +68,10 @@ Ejemplos útiles:
 2. Crear cita en `POST /appointments`
 3. Login secretaría en `/auth/login`
 4. Cambiar estado en `PATCH /appointments/{appointment_id}/status`
+
+Para mantener sesión en frontend, usa `/auth/refresh` enviando el `refresh_token` cuando el `access_token` expire.
+
+Para cerrar sesión, usa `/auth/logout` con el `refresh_token`; el token queda revocado y ya no podrá renovarse.
 
 Body para cambio de estado:
 

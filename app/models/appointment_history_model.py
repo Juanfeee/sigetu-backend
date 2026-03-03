@@ -44,3 +44,9 @@ class AppointmentHistory(Base):
         if self.student is None:
             return None
         return self.student.full_name
+
+    @property
+    def secretaria_name(self) -> str | None:
+        if self.secretaria is None:
+            return None
+        return self.secretaria.full_name

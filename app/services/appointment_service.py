@@ -1,7 +1,8 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.appointment_history_model import AppointmentHistory
@@ -20,7 +21,7 @@ class AppointmentService:
     def _normalize_to_utc_naive(self, value: datetime) -> datetime:
         if value.tzinfo is None:
             return value
-        return value.astimezone().replace(tzinfo=None)
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
 
     def _validate_scheduled_at(self, scheduled_at: datetime | None) -> None:
         if scheduled_at is None:
@@ -52,22 +53,31 @@ class AppointmentService:
 
         sede = "asistencia_estudiantil"
         today = datetime.utcnow().date()
-        turn_seq = self.repository.next_turn_sequence(db, sede=sede, for_date=today)
-        turn_number = f"AE-{today.strftime('%Y%m%d')}-{turn_seq:03d}"
 
-        appointment = Appointment(
-            student_id=student.id,
-            sede=sede,
-            category=payload.category,
-            context=payload.context,
-            status="pendiente",
-            turn_number=turn_number,
-            scheduled_at=payload.scheduled_at,
-        )
-        created = self.repository.create(db, appointment)
-        created.student = student
-        self._publish_realtime_event("appointment_created", created)
-        return created
+        last_error: IntegrityError | None = None
+        for _ in range(3):
+            turn_seq = self.repository.next_turn_sequence(db, sede=sede, for_date=today)
+            turn_number = f"AE-{today.strftime('%Y%m%d')}-{turn_seq:03d}"
+
+            appointment = Appointment(
+                student_id=student.id,
+                sede=sede,
+                category=payload.category,
+                context=payload.context,
+                status="pendiente",
+                turn_number=turn_number,
+                scheduled_at=payload.scheduled_at,
+            )
+            try:
+                created = self.repository.create(db, appointment)
+                created.student = student
+                self._publish_realtime_event("appointment_created", created)
+                return created
+            except IntegrityError as exc:
+                db.rollback()
+                last_error = exc
+
+        raise HTTPException(status_code=409, detail="No fue posible asignar turno, intenta nuevamente") from last_error
 
     def get_queue(
         self,
@@ -104,7 +114,7 @@ class AppointmentService:
         return self.repository.get_queue_history(
             db,
             sede=sede,
-            programa_academico=secretaria.programa_academico,
+            secretaria_id=secretaria.id,
         )
 
     def get_appointment_detail(
@@ -261,13 +271,25 @@ class AppointmentService:
                 detail=f"No se puede cambiar de {appointment.status} a {new_status}",
             )
 
+        if appointment.status in {"llamando", "en_atencion"}:
+            if appointment.secretaria_id is None:
+                appointment.secretaria_id = changed_by_user.id
+            elif appointment.secretaria_id != changed_by_user.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Esta cita está siendo atendida por otra secretaría",
+                )
+
+        if appointment.status == "pendiente" and new_status == "llamando":
+            appointment.secretaria_id = changed_by_user.id
+
         if new_status in self.final_statuses:
             appointment.status = new_status
             archived = self.repository.archive_and_delete(
                 db=db,
                 appointment=appointment,
                 final_status=new_status,
-                secretaria_id=changed_by_user.id,
+                secretaria_id=appointment.secretaria_id or changed_by_user.id,
             )
             self._publish_realtime_event("appointment_status_changed", archived)
             return archived

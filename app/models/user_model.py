@@ -23,4 +23,9 @@ class User(Base):
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
 
     role = relationship("Role", back_populates="users")
-    appointments = relationship("Appointment", back_populates="student", passive_deletes=True)
+    appointments = relationship(
+        "Appointment",
+        back_populates="student",
+        foreign_keys="Appointment.student_id",
+        passive_deletes=True,
+    )

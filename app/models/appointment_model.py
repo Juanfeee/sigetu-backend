@@ -22,6 +22,7 @@ class Appointment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    secretaria_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     sede = Column(String(80), nullable=False, default="asistencia_estudiantil")
     category = Column(String(30), nullable=False, index=True)
@@ -32,10 +33,17 @@ class Appointment(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     scheduled_at = Column(DateTime, nullable=True)
 
-    student = relationship("User", back_populates="appointments")
+    student = relationship("User", back_populates="appointments", foreign_keys=[student_id])
+    secretaria = relationship("User", foreign_keys=[secretaria_id])
 
     @property
     def student_name(self) -> str | None:
         if self.student is None:
             return None
         return self.student.full_name
+
+    @property
+    def secretaria_name(self) -> str | None:
+        if self.secretaria is None:
+            return None
+        return self.secretaria.full_name

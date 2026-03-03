@@ -63,7 +63,7 @@ class AppointmentRepository:
 
         return query.all()
 
-    def get_queue_history(self, db: Session, sede: str, programa_academico: str | None = None) -> list[AppointmentHistory]:
+    def get_queue_history(self, db: Session, sede: str, secretaria_id: int | None = None) -> list[AppointmentHistory]:
         query = (
             db.query(AppointmentHistory)
             .join(User, AppointmentHistory.student_id == User.id)
@@ -73,8 +73,8 @@ class AppointmentRepository:
             .order_by(AppointmentHistory.archived_at.desc())
         )
 
-        if programa_academico is not None:
-            query = query.filter(User.programa_academico == programa_academico)
+        if secretaria_id is not None:
+            query = query.filter(AppointmentHistory.secretaria_id == secretaria_id)
 
         return query.all()
 
@@ -119,12 +119,40 @@ class AppointmentRepository:
         return appointment
 
     def next_turn_sequence(self, db: Session, sede: str, for_date: date) -> int:
-        count = (
-            db.query(func.count(Appointment.id))
+        active_turns = (
+            db.query(Appointment.turn_number)
             .filter(
                 Appointment.sede == sede,
                 func.date(Appointment.created_at) == for_date,
             )
-            .scalar()
+            .all()
         )
-        return int(count or 0) + 1
+
+        history_turns = (
+            db.query(AppointmentHistory.turn_number)
+            .filter(
+                AppointmentHistory.sede == sede,
+                func.date(AppointmentHistory.created_at) == for_date,
+            )
+            .all()
+        )
+
+        max_sequence = 0
+        for turn_number_tuple in [*active_turns, *history_turns]:
+            turn_number = turn_number_tuple[0]
+            if not turn_number:
+                continue
+
+            parts = turn_number.split("-")
+            if len(parts) != 3:
+                continue
+
+            try:
+                sequence = int(parts[2])
+            except ValueError:
+                continue
+
+            if sequence > max_sequence:
+                max_sequence = sequence
+
+        return max_sequence + 1

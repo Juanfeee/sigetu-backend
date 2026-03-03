@@ -15,6 +15,7 @@ from app.models.user_model import User
 from app.models.role_model import Role
 from app.models.appointment_model import Appointment
 from app.models.appointment_history_model import AppointmentHistory
+from app.models.revoked_token_model import RevokedToken
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
