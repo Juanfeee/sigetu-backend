@@ -1,3 +1,5 @@
+"""Carga y expone la configuración base de la aplicación desde variables de entorno."""
+
 import os
 from dotenv import load_dotenv
 

@@ -1,3 +1,5 @@
+"""Semillas de roles y usuarios base para entornos de desarrollo."""
+
 from sqlalchemy.orm import Session
 from app.models.modelo_rol import Role
 from app.models.modelo_usuario import User
@@ -8,7 +10,8 @@ SEED_PASSWORD = "12345678"
 PROGRAMAS_ACADEMICOS = ["ingenierias", "derecho", "finanzas"]
 
 def seed_roles(db: Session):
-    roles = ["admin", "estudiante", "secretaria"]
+    """Crea los roles mínimos requeridos por el flujo de autenticación y sedes."""
+    roles = ["admin", "estudiante", "secretaria", "administrativo", "admisiones_mercadeo"]
 
     for role_name in roles:
         role = db.query(Role).filter(Role.name == role_name).first()
@@ -20,13 +23,17 @@ def seed_roles(db: Session):
 
 
 def seed_default_users(db: Session):
+    """Crea/actualiza usuarios de prueba para cada rol y programa académico."""
     role_estudiante = db.query(Role).filter(Role.name == "estudiante").first()
     role_secretaria = db.query(Role).filter(Role.name == "secretaria").first()
+    role_administrativo = db.query(Role).filter(Role.name == "administrativo").first()
+    role_admisiones_mercadeo = db.query(Role).filter(Role.name == "admisiones_mercadeo").first()
 
-    if not role_estudiante or not role_secretaria:
+    if not role_estudiante or not role_secretaria or not role_administrativo or not role_admisiones_mercadeo:
         return
 
     def upsert_user(email: str, full_name: str, role_id: int, programa_academico: str | None):
+        """Inserta o sincroniza un usuario semilla conservando credenciales de desarrollo."""
         existing_user = db.query(User).filter(User.email == email).first()
         hashed = hashear_contrasena(SEED_PASSWORD)
 
@@ -57,6 +64,13 @@ def seed_default_users(db: Session):
         programa_academico="ingenierias",
     )
 
+    upsert_user(
+        email="admisiones.mercadeo@uniautonoma.edu.co",
+        full_name="Admisiones y Mercadeo",
+        role_id=role_admisiones_mercadeo.id,
+        programa_academico=None,
+    )
+
     for programa in PROGRAMAS_ACADEMICOS:
         upsert_user(
             email=f"estudiante.{programa}@uniautonoma.edu.co",
@@ -68,5 +82,11 @@ def seed_default_users(db: Session):
             email=f"secretaria.{programa}@uniautonoma.edu.co",
             full_name=f"Secretaria {programa.capitalize()}",
             role_id=role_secretaria.id,
+            programa_academico=programa,
+        )
+        upsert_user(
+            email=f"administrativo.{programa}@uniautonoma.edu.co",
+            full_name=f"Administrativo {programa.capitalize()}",
+            role_id=role_administrativo.id,
             programa_academico=programa,
         )

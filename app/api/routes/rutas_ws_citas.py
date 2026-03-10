@@ -1,3 +1,5 @@
+"""Canal WebSocket para recibir eventos de citas en tiempo real."""
+
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -17,6 +19,7 @@ async def websocket_citas(
     token: str = Query(...),
     db: Session = Depends(obtener_db),
 ):
+    """Autentica socket por JWT y suscribe la conexión al gestor realtime."""
     try:
         carga = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email = carga.get("sub")

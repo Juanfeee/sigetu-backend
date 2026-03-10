@@ -1,3 +1,5 @@
+"""Configuración de engine y sesiones de base de datos para FastAPI."""
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.configuracion import DATABASE_URL
@@ -11,6 +13,7 @@ SessionLocal = sessionmaker(
 )
 
 def obtener_db():
+    """Entrega una sesión transaccional por request y la cierra al finalizar."""
     db = SessionLocal()
     try:
         yield db

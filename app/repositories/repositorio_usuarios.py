@@ -1,9 +1,13 @@
+"""Repositorio de operaciones CRUD básicas de usuarios."""
+
 from sqlalchemy.orm import Session
 from app.models.modelo_usuario import User
 
 class RepositorioUsuario:
+    """Abstrae lectura y creación de usuarios en base de datos."""
 
     def obtener_por_email(self, db: Session, email: str):
+        """Busca un usuario por correo electrónico."""
         return db.query(User).filter(User.email == email).first()
 
     def crear(
@@ -16,6 +20,7 @@ class RepositorioUsuario:
         programa_academico: str | None = None,
         is_active: bool = True,
     ):
+        """Crea un usuario nuevo con su rol y metadatos iniciales."""
         usuario = User(
             email=email,
             full_name=full_name,

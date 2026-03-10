@@ -1,3 +1,5 @@
+"""Repositorio de persistencia para citas activas e historial."""
+
 from datetime import date
 
 from sqlalchemy import func
@@ -9,16 +11,21 @@ from app.models.modelo_usuario import User
 
 
 class RepositorioCitas:
+    """Encapsula consultas y escrituras de citas para reutilizar acceso a datos."""
+
     def crear(self, db: Session, cita: Appointment) -> Appointment:
+        """Persiste una cita nueva y devuelve la entidad refrescada."""
         db.add(cita)
         db.commit()
         db.refresh(cita)
         return cita
 
     def obtener_por_id(self, db: Session, appointment_id: int) -> Appointment | None:
+        """Obtiene una cita activa por identificador interno."""
         return db.query(Appointment).filter(Appointment.id == appointment_id).first()
 
     def obtener_por_id_estudiante(self, db: Session, student_id: int) -> list[Appointment]:
+        """Lista citas activas de un estudiante ordenadas por fecha de creación."""
         return (
             db.query(Appointment)
             .filter(Appointment.student_id == student_id)
@@ -27,6 +34,7 @@ class RepositorioCitas:
         )
 
     def obtener_historial_por_id_estudiante(self, db: Session, student_id: int) -> list[AppointmentHistory]:
+        """Lista citas archivadas de un estudiante en orden descendente."""
         return (
             db.query(AppointmentHistory)
             .filter(
@@ -37,6 +45,7 @@ class RepositorioCitas:
         )
 
     def obtener_actuales_por_id_estudiante(self, db: Session, student_id: int) -> list[Appointment]:
+        """Retorna citas en curso del estudiante para la vista de estado actual."""
         return (
             db.query(Appointment)
             .filter(
@@ -48,6 +57,7 @@ class RepositorioCitas:
         )
 
     def obtener_cola(self, db: Session, sede: str, programa_academico: str | None = None) -> list[Appointment]:
+        """Consulta la cola activa por sede con filtro opcional por programa académico."""
         consulta = (
             db.query(Appointment)
             .join(User, Appointment.student_id == User.id)
@@ -64,6 +74,7 @@ class RepositorioCitas:
         return consulta.all()
 
     def obtener_historial_cola(self, db: Session, sede: str, secretaria_id: int | None = None) -> list[AppointmentHistory]:
+        """Consulta historial por sede y, cuando aplica, por usuario staff responsable."""
         consulta = (
             db.query(AppointmentHistory)
             .join(User, AppointmentHistory.student_id == User.id)
@@ -79,6 +90,7 @@ class RepositorioCitas:
         return consulta.all()
 
     def actualizar_estado(self, db: Session, cita: Appointment, status: str) -> Appointment:
+        """Actualiza estado de una cita activa y confirma transacción."""
         cita.status = status
         db.commit()
         db.refresh(cita)
@@ -91,7 +103,9 @@ class RepositorioCitas:
         estado_final: str,
         secretaria_id: int | None = None,
         attention_ended_at=None,
+        scheduled_at_historial=None,
     ) -> AppointmentHistory:
+        """Mueve una cita a historial y elimina el registro activo en una sola operación."""
         historial = AppointmentHistory(
             appointment_id=cita.id,
             student_id=cita.student_id,
@@ -102,7 +116,7 @@ class RepositorioCitas:
             status=estado_final,
             turn_number=cita.turn_number,
             created_at=cita.created_at,
-            scheduled_at=cita.scheduled_at,
+            scheduled_at=scheduled_at_historial if scheduled_at_historial is not None else cita.scheduled_at,
             attention_started_at=cita.attention_started_at,
             attention_ended_at=attention_ended_at,
             student=cita.student,
@@ -114,6 +128,7 @@ class RepositorioCitas:
         return historial
 
     def actualizar(self, db: Session, cita: Appointment, **campos) -> Appointment:
+        """Aplica actualización parcial de campos permitidos sobre una cita."""
         for nombre_campo, valor_campo in campos.items():
             if valor_campo is not None:
                 setattr(cita, nombre_campo, valor_campo)
@@ -122,6 +137,7 @@ class RepositorioCitas:
         return cita
 
     def siguiente_secuencia_turno(self, db: Session, sede: str, para_fecha: date) -> int:
+        """Calcula el siguiente consecutivo diario de turnos considerando activos e historial."""
         turnos_activos = (
             db.query(Appointment.turn_number)
             .filter(

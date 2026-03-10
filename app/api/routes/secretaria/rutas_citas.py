@@ -1,7 +1,12 @@
+"""Endpoints de gestión de cola para roles staff por sede."""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.dependencias_autenticacion import requerir_rol_secretaria_o_admin, requerir_rol_secretaria
+from app.core.dependencias_autenticacion import (
+    requerir_rol_secretaria_o_admin,
+    requerir_rol_secretaria_o_administrativo,
+)
 from app.db.sesion import obtener_db
 from app.schemas.esquema_citas import (
     RespuestaDetalleCita,
@@ -19,17 +24,27 @@ servicio = ServicioCitas()
 @router.get("/queue", response_model=list[ItemColaCita])
 def obtener_cola(
     db: Session = Depends(obtener_db),
-    carga_token: dict = Depends(requerir_rol_secretaria),
+    carga_token: dict = Depends(requerir_rol_secretaria_o_administrativo),
 ):
-    return servicio.obtener_cola(db=db, secretaria_email=carga_token["sub"])
+    """Obtiene cola activa de la sede asociada al rol del usuario staff."""
+    return servicio.obtener_cola(
+        db=db,
+        staff_email=carga_token["sub"],
+        staff_role=carga_token["role"],
+    )
 
 
 @router.get("/queue/history", response_model=list[ItemColaCita])
 def obtener_historial_cola(
     db: Session = Depends(obtener_db),
-    carga_token: dict = Depends(requerir_rol_secretaria),
+    carga_token: dict = Depends(requerir_rol_secretaria_o_administrativo),
 ):
-    return servicio.obtener_historial_cola(db=db, secretaria_email=carga_token["sub"])
+    """Obtiene historial de cola de la sede asociada al rol del usuario staff."""
+    return servicio.obtener_historial_cola(
+        db=db,
+        staff_email=carga_token["sub"],
+        staff_role=carga_token["role"],
+    )
 
 
 @router.get("/{appointment_id}/detail", response_model=RespuestaDetalleCita)
@@ -38,6 +53,7 @@ def obtener_detalle_cita(
     db: Session = Depends(obtener_db),
     carga_token: dict = Depends(requerir_rol_secretaria_o_admin),
 ):
+    """Devuelve detalle ampliado de cita para gestión operativa."""
     return servicio.obtener_detalle_cita(
         db=db,
         appointment_id=appointment_id,
@@ -53,11 +69,13 @@ def actualizar_estado(
     db: Session = Depends(obtener_db),
     carga_token: dict = Depends(requerir_rol_secretaria_o_admin),
 ):
+    """Actualiza el estado de una cita según el flujo permitido de transiciones."""
     return servicio.actualizar_estado(
         db=db,
         appointment_id=appointment_id,
         new_status=carga.status,
         changed_by_email=carga_token["sub"],
+        changed_by_role=carga_token["role"],
     )
 
 
@@ -65,12 +83,14 @@ def actualizar_estado(
 def iniciar_atencion(
     appointment_id: int,
     db: Session = Depends(obtener_db),
-    carga_token: dict = Depends(requerir_rol_secretaria),
+    carga_token: dict = Depends(requerir_rol_secretaria_o_administrativo),
 ):
+    """Inicia atención de una cita previamente llamada por el staff."""
     return servicio.iniciar_atencion(
         db=db,
         appointment_id=appointment_id,
-        secretaria_email=carga_token["sub"],
+        staff_email=carga_token["sub"],
+        staff_role=carga_token["role"],
     )
 
 
@@ -78,10 +98,12 @@ def iniciar_atencion(
 def extender_tiempo(
     appointment_id: int,
     db: Session = Depends(obtener_db),
-    carga_token: dict = Depends(requerir_rol_secretaria),
+    carga_token: dict = Depends(requerir_rol_secretaria_o_administrativo),
 ):
+    """Extiende tiempo de atención y reajusta agenda de la sede."""
     return servicio.extender_tiempo(
         db=db,
         appointment_id=appointment_id,
-        secretaria_email=carga_token["sub"],
+        staff_email=carga_token["sub"],
+        staff_role=carga_token["role"],
     )

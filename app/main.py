@@ -1,3 +1,5 @@
+"""Punto de entrada de FastAPI: registra middlewares, rutas y datos semilla."""
+
 from app.db.datos_iniciales import seed_default_users, seed_roles
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,6 +31,7 @@ app.include_router(rutas_citas_secretaria.router)
 app.include_router(rutas_ws_citas.router)
 @app.on_event("startup")
 def evento_inicio():
+    """Inicializa roles y usuarios semilla al levantar la aplicación."""
     db = SessionLocal()
     seed_roles(db)
     seed_default_users(db)

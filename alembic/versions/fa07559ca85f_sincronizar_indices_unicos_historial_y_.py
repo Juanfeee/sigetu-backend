@@ -19,18 +19,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.drop_constraint('appointment_history_appointment_id_key', 'appointment_history', type_='unique')
-    op.drop_index('ix_appointment_history_appointment_id', table_name='appointment_history')
-    op.create_index('ix_appointment_history_appointment_id', 'appointment_history', ['appointment_id'], unique=True)
-    op.drop_constraint('uq_revoked_tokens_jti', 'revoked_tokens', type_='unique')
-    op.drop_index('ix_revoked_tokens_jti', table_name='revoked_tokens')
-    op.create_index('ix_revoked_tokens_jti', 'revoked_tokens', ['jti'], unique=True)
+    pass
 
 
 def downgrade() -> None:
-    op.drop_index('ix_revoked_tokens_jti', table_name='revoked_tokens')
-    op.create_index('ix_revoked_tokens_jti', 'revoked_tokens', ['jti'], unique=False)
-    op.create_unique_constraint('uq_revoked_tokens_jti', 'revoked_tokens', ['jti'])
-    op.drop_index('ix_appointment_history_appointment_id', table_name='appointment_history')
-    op.create_index('ix_appointment_history_appointment_id', 'appointment_history', ['appointment_id'], unique=False)
-    op.create_unique_constraint('appointment_history_appointment_id_key', 'appointment_history', ['appointment_id'])
+    pass

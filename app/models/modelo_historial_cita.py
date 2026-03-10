@@ -1,3 +1,5 @@
+"""Modelo ORM de citas archivadas con resultado final de atención."""
+
 from datetime import datetime
 
 from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, String
@@ -7,6 +9,7 @@ from app.db.base import Base
 
 
 class AppointmentHistory(Base):
+    """Representa una cita finalizada o cancelada movida fuera de la cola activa."""
     __tablename__ = "appointment_history"
     __table_args__ = (
         CheckConstraint(
@@ -14,7 +17,13 @@ class AppointmentHistory(Base):
             name="ck_appointment_history_status_valid",
         ),
         CheckConstraint(
-            "category IN ('academico','administrativo','financiero','otro')",
+            (
+                "category IN "
+                "('academico','administrativo','financiero','otro',"
+                "'pagos_facturacion','recibos_certificados','creditos_financiacion',"
+                "'problemas_soporte_financiero','plataformas_servicios',"
+                "'informacion_academica','inscripcion_matricula')"
+            ),
             name="ck_appointment_history_category_valid",
         ),
         Index("ix_appointment_history_student_id_archived_at", "student_id", "archived_at"),
@@ -43,12 +52,14 @@ class AppointmentHistory(Base):
 
     @property
     def student_name(self) -> str | None:
+        """Devuelve nombre del estudiante asociado para respuestas de historial."""
         if self.student is None:
             return None
         return self.student.full_name
 
     @property
     def secretaria_name(self) -> str | None:
+        """Devuelve nombre del staff que gestionó la cita archivada."""
         if self.secretaria is None:
             return None
         return self.secretaria.full_name

@@ -12,11 +12,18 @@ SIGETU Backend permite a **estudiantes** crear y gestionar citas académicas, y 
 
 **Características principales:**
 - 🎓 Gestión de citas por categoría (académica, administrativa, financiera, otra)
-- 👥 Dos roles con permisos diferenciados (estudiante, secretaría)
+- 👥 Tres roles operativos con permisos diferenciados (estudiante, secretaría, administrativo)
 - 🔐 Autenticación con JWT y refresh tokens
 - 📡 Actualizaciones en tiempo real vía WebSocket
 - 🗄️ Migraciones versionadas con Alembic
 - 📚 Documentación interactiva en Swagger
+
+**Sede administrativa (categorías y contextos):**
+- `pagos_facturacion`: `pagos_con_tarjeta`, `validacion_pagos`, `facturacion_electronica`, `cruces_saldos_favor`, `aplicacion_descuentos`
+- `recibos_certificados`: `generacion_recibos`, `certificado_valores_pagados`, `constancias_certificados`
+- `creditos_financiacion`: `tramites_credito`, `financiacion_interna_externa`, `tramites_icetex`
+- `problemas_soporte_financiero`: `problemas_matriculas_financieras`
+- `plataformas_servicios`: `habilitacion_plataformas`
 
 ## 🚀 Quick Start
 
@@ -140,6 +147,7 @@ Ver detalles en [docs/STRUCTURE.md](docs/STRUCTURE.md)
 |-----|----------|
 | **Estudiante** | Crear, ver y editar sus propias citas |
 | **Secretaría** | Ver cola, cambiar estados, ver historial |
+| **Administrativo** | Gestionar cola y estados de sede administrativa |
 
 Autenticación por JWT. Ver [docs/PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md)
 
@@ -162,6 +170,11 @@ Autenticación por JWT. Ver [docs/PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md)
 - `GET /appointments/queue` - Ver cola
 - `GET /appointments/queue/history` - Ver historial
 - `PATCH /appointments/{id}/status` - Cambiar estado
+
+### Administrativo
+- `GET /appointments/queue` - Ver cola de sede administrativa (rol `administrativo`)
+- `GET /appointments/queue/history` - Ver historial de sede administrativa
+- `PATCH /appointments/{id}/status` - Cambiar estado de citas de sede administrativa
 
 ### WebSocket
 - `WS /ws/appointments/{token}` - Actualizaciones en tiempo real

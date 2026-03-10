@@ -1,3 +1,5 @@
+"""Utilidades de seguridad: hashing de contraseñas y generación de tokens JWT."""
+
 from passlib.context import CryptContext
 from jose import jwt
 from datetime import datetime, timedelta
@@ -12,13 +14,16 @@ from app.core.configuracion import (
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hashear_contrasena(contrasena: str) -> str:
+    """Hashea una contraseña de usuario con bcrypt respetando el límite de entrada."""
     contrasena = contrasena[:72]
     return pwd_context.hash(contrasena)
 
 def verificar_contrasena(plana, hasheada):
+    """Compara una contraseña en texto plano contra su hash almacenado."""
     return pwd_context.verify(plana, hasheada)
 
 def crear_token_acceso(datos: dict, expiracion_delta: timedelta | None = None):
+    """Genera un access token JWT con expiración corta para consumir la API."""
     a_codificar = datos.copy()
     expiracion = datetime.utcnow() + (expiracion_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
 
@@ -28,6 +33,7 @@ def crear_token_acceso(datos: dict, expiracion_delta: timedelta | None = None):
 
 
 def crear_token_refresco(datos: dict, expiracion_delta: timedelta | None = None):
+    """Genera un refresh token JWT con `jti` para control de revocación."""
     a_codificar = datos.copy()
     expiracion = datetime.utcnow() + (expiracion_delta or timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS))
 

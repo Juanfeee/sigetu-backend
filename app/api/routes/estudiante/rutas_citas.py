@@ -1,3 +1,5 @@
+"""Endpoints de citas para estudiantes e invitados."""
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -10,12 +12,23 @@ router = APIRouter(prefix="/appointments", tags=["Appointments"])
 servicio = ServicioCitas()
 
 
+def _validar_sede(sede: str) -> str:
+    """Valida que la sede solicitada esté habilitada para creación/consulta."""
+    sedes_permitidas = {"asistencia_estudiantil", "sede_administrativa", "sede_admisiones_mercadeo"}
+    if sede not in sedes_permitidas:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Sede inválida")
+    return sede
+
+
 @router.get("/horarios-ocupados", response_model=RespuestaHorariosOcupados)
 def obtener_horarios_ocupados(
+    sede: str = Query("asistencia_estudiantil"),
     db: Session = Depends(obtener_db),
     _: dict = Depends(requerir_rol_estudiante_o_invitado),
 ):
-    return servicio.obtener_horarios_ocupados(db=db)
+    """Retorna franjas de horario ocupadas para la sede seleccionada."""
+    return servicio.obtener_horarios_ocupados(db=db, sede=_validar_sede(sede))
 
 
 @router.get("/guest", response_model=list[RespuestaCita])
@@ -24,6 +37,7 @@ def obtener_citas_invitado(
     carga_token: dict = Depends(requerir_rol_invitado),
     db: Session = Depends(obtener_db),
 ):
+    """Lista citas del dispositivo invitado autenticado."""
     if carga_token.get("device_id") != device_id:
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="No puedes consultar citas de otro dispositivo")
@@ -33,12 +47,25 @@ def obtener_citas_invitado(
 @router.post("", response_model=RespuestaCita)
 def crear_cita(
     carga: CrearCita,
+    sede: str = Query("asistencia_estudiantil"),
     db: Session = Depends(obtener_db),
     carga_token: dict = Depends(requerir_rol_estudiante_o_invitado),
 ):
+    """Crea una cita en la sede indicada para estudiante o invitado."""
+    sede_validada = _validar_sede(sede)
     if carga_token.get("role") == "guest":
-        return servicio.crear_cita(db=db, payload=carga, device_id=carga_token["device_id"])
-    return servicio.crear_cita(db=db, payload=carga, student_email=carga_token["sub"])
+        return servicio.crear_cita(
+            db=db,
+            payload=carga,
+            device_id=carga_token["device_id"],
+            sede=sede_validada,
+        )
+    return servicio.crear_cita(
+        db=db,
+        payload=carga,
+        student_email=carga_token["sub"],
+        sede=sede_validada,
+    )
 
 
 @router.get("/me", response_model=list[RespuestaCita])
@@ -46,6 +73,7 @@ def obtener_mis_citas(
     db: Session = Depends(obtener_db),
     carga_token: dict = Depends(requerir_rol_estudiante),
 ):
+    """Retorna todas las citas activas del estudiante autenticado."""
     return servicio.obtener_citas_estudiante(db=db, student_email=carga_token["sub"])
 
 
@@ -54,6 +82,7 @@ def obtener_mis_citas_actuales(
     db: Session = Depends(obtener_db),
     carga_token: dict = Depends(requerir_rol_estudiante),
 ):
+    """Retorna solo citas en estados activos del estudiante."""
     return servicio.obtener_citas_actuales_estudiante(db=db, student_email=carga_token["sub"])
 
 
@@ -62,6 +91,7 @@ def obtener_mi_historial(
     db: Session = Depends(obtener_db),
     carga_token: dict = Depends(requerir_rol_estudiante),
 ):
+    """Retorna historial de citas finalizadas/canceladas del estudiante."""
     return servicio.obtener_historial_citas_estudiante(db=db, student_email=carga_token["sub"])
 
 
@@ -72,6 +102,7 @@ def actualizar_mi_cita(
     db: Session = Depends(obtener_db),
     carga_token: dict = Depends(requerir_rol_estudiante),
 ):
+    """Permite actualizar datos de una cita pendiente del estudiante."""
     return servicio.actualizar_cita_estudiante(
         db=db,
         appointment_id=appointment_id,
@@ -86,6 +117,7 @@ def cancelar_mi_cita(
     db: Session = Depends(obtener_db),
     carga_token: dict = Depends(requerir_rol_estudiante),
 ):
+    """Cancela una cita pendiente del estudiante autenticado."""
     return servicio.cancelar_cita_estudiante(
         db=db,
         appointment_id=appointment_id,

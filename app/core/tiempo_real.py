@@ -1,11 +1,16 @@
+"""Gestor de conexiones WebSocket para publicar eventos de citas en tiempo real."""
+
 from fastapi import WebSocket
 
 
 class GestorTiempoRealCitas:
+    """Mantiene conexiones activas y distribuye eventos según rol y sede."""
+
     def __init__(self) -> None:
         self._conexiones: list[dict] = []
 
     async def conectar(self, websocket: WebSocket, role: str, email: str, programa_academico: str | None) -> None:
+        """Registra una nueva conexión autenticada para recibir eventos en vivo."""
         await websocket.accept()
         self._conexiones.append(
             {
@@ -17,12 +22,15 @@ class GestorTiempoRealCitas:
         )
 
     def desconectar(self, websocket: WebSocket) -> None:
+        """Elimina una conexión cerrada o inválida del pool activo."""
         self._conexiones = [item for item in self._conexiones if item["websocket"] is not websocket]
 
     async def publicar_evento_cita(self, tipo_evento: str, cita) -> None:
+        """Publica un evento de cita filtrando destinatarios por rol, sede y pertenencia."""
         estudiante = getattr(cita, "student", None)
         programa_estudiante = getattr(estudiante, "programa_academico", None)
         email_estudiante = getattr(estudiante, "email", None)
+        sede_cita = getattr(cita, "sede", None)
 
         carga = {
             "event": tipo_evento,
@@ -50,6 +58,10 @@ class GestorTiempoRealCitas:
                 puede_recibir = True
             elif rol == "secretaria" and programa is not None and programa_estudiante == programa:
                 puede_recibir = True
+            elif rol == "administrativo" and sede_cita == "sede_administrativa":
+                puede_recibir = True
+            elif rol == "admisiones_mercadeo" and sede_cita == "sede_admisiones_mercadeo":
+                puede_recibir = True
             elif rol == "estudiante" and email_estudiante is not None and email == email_estudiante:
                 puede_recibir = True
 
@@ -65,6 +77,7 @@ class GestorTiempoRealCitas:
             self.desconectar(websocket)
 
     async def broadcast(self, mensaje: dict) -> None:
+        """Envía un mensaje global a todas las conexiones activas."""
         conexiones_obsoletas = []
         for item in self._conexiones:
             try:

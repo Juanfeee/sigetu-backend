@@ -1,3 +1,5 @@
+"""Lógica de negocio de autenticación, registro y gestión de tokens."""
+
 from fastapi import HTTPException
 from jose import JWTError, jwt
 from datetime import datetime
@@ -10,6 +12,7 @@ from app.models.modelo_rol import Role
 from app.models.modelo_cita import Appointment
 
 class ServicioAutenticacion:
+    """Orquesta validación de credenciales, emisión de JWT y revocación de refresh tokens."""
 
     PROGRAMAS_PERMITIDOS = {"ingenierias", "derecho", "finanzas"}
 
@@ -18,6 +21,7 @@ class ServicioAutenticacion:
         self.repositorio_tokens_revocados = RepositorioTokensRevocados()
 
     def _extraer_payload_refresco(self, refresh_token: str) -> dict:
+        """Valida y descompone un refresh token en los datos mínimos requeridos."""
         try:
             carga = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
         except JWTError as exc:
@@ -42,6 +46,7 @@ class ServicioAutenticacion:
         }
 
     def _construir_par_tokens(self, email: str, role: str) -> dict:
+        """Construye el par access/refresh con payload de identidad y rol."""
         carga_token = {"sub": email, "role": role}
         return {
             "access_token": crear_token_acceso(carga_token),
@@ -58,6 +63,7 @@ class ServicioAutenticacion:
         programa_academico: str | None = None,
         device_id: str | None = None,
     ):
+        """Registra un estudiante y migra citas activas de invitado cuando corresponda."""
         if self.repositorio_usuario.obtener_por_email(db, email):
             raise HTTPException(status_code=400, detail="Email ya registrado")
 
@@ -114,6 +120,7 @@ class ServicioAutenticacion:
         }
 
     def iniciar_sesion(self, db: Session, email: str, password: str):
+        """Autentica usuario por email/password y retorna tokens activos."""
         usuario = self.repositorio_usuario.obtener_por_email(db, email)
 
         if not usuario or not verificar_contrasena(password, usuario.hashed_password):
@@ -137,6 +144,7 @@ class ServicioAutenticacion:
         }
 
     def renovar(self, db: Session, refresh_token: str) -> dict:
+        """Rota refresh token y emite un nuevo par de tokens si el usuario sigue activo."""
         carga_refresco = self._extraer_payload_refresco(refresh_token)
 
         if self.repositorio_tokens_revocados.esta_revocado(db, carga_refresco["jti"]):
@@ -158,6 +166,7 @@ class ServicioAutenticacion:
         return self._construir_par_tokens(email=usuario.email, role=usuario.role.name)
 
     def cerrar_sesion(self, db: Session, refresh_token: str) -> dict:
+        """Revoca el refresh token actual para cerrar sesión de forma segura."""
         carga_refresco = self._extraer_payload_refresco(refresh_token)
 
         self.repositorio_tokens_revocados.revocar(
@@ -169,6 +178,7 @@ class ServicioAutenticacion:
         return {"detail": "Sesión cerrada correctamente"}
 
     def login_invitado(self, device_id: str) -> dict:
+        """Genera un access token temporal para flujo de invitado por dispositivo."""
         return {
             "access_token": crear_token_invitado(device_id),
             "token_type": "bearer",

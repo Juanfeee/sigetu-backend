@@ -1,9 +1,12 @@
+"""Modelo ORM de usuarios autenticados del sistema."""
+
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.base import Base
 
 class User(Base):
+    """Entidad de usuario con relación a rol y citas asociadas."""
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)

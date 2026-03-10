@@ -1,12 +1,15 @@
+"""Modelo ORM de citas activas en cola por sede."""
+
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
 
 
 class Appointment(Base):
+    """Representa una cita activa con estado, turno y metadatos de atención."""
     __tablename__ = "appointments"
     __table_args__ = (
         CheckConstraint(
@@ -14,13 +17,20 @@ class Appointment(Base):
             name="ck_appointments_status_valid",
         ),
         CheckConstraint(
-            "category IN ('academico','administrativo','financiero','otro')",
+            (
+                "category IN "
+                "('academico','administrativo','financiero','otro',"
+                "'pagos_facturacion','recibos_certificados','creditos_financiacion',"
+                "'problemas_soporte_financiero','plataformas_servicios',"
+                "'informacion_academica','inscripcion_matricula')"
+            ),
             name="ck_appointments_category_valid",
         ),
         CheckConstraint(
             "(student_id IS NULL) != (device_id IS NULL)",
             name="ck_appointments_owner",
         ),
+        UniqueConstraint("sede", "scheduled_at", name="uq_appointments_sede_scheduled_at"),
         Index("ix_appointments_sede_status_created_at", "sede", "status", "created_at"),
     )
 
@@ -36,7 +46,7 @@ class Appointment(Base):
     turn_number = Column(String(20), nullable=False, unique=True, index=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-    scheduled_at = Column(DateTime, nullable=True, unique=True)
+    scheduled_at = Column(DateTime, nullable=True)
     attention_started_at = Column(DateTime, nullable=True)
     extension_count = Column(Integer, nullable=False, default=0)
 
@@ -45,12 +55,14 @@ class Appointment(Base):
 
     @property
     def student_name(self) -> str | None:
+        """Expone nombre del estudiante relacionado para serialización rápida."""
         if self.student is None:
             return None
         return self.student.full_name
 
     @property
     def secretaria_name(self) -> str | None:
+        """Expone nombre del staff asignado para vistas de cola."""
         if self.secretaria is None:
             return None
         return self.secretaria.full_name
