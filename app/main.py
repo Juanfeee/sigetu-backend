@@ -1,6 +1,5 @@
 """Punto de entrada de FastAPI: registra middlewares, rutas y datos semilla."""
 
-from app.db.datos_iniciales import seed_default_users, seed_roles
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.sesion import SessionLocal
@@ -29,10 +28,5 @@ app.include_router(rutas_autenticacion.router)
 app.include_router(rutas_citas_estudiante.router)
 app.include_router(rutas_citas_secretaria.router)
 app.include_router(rutas_ws_citas.router)
-@app.on_event("startup")
-def evento_inicio():
-    """Inicializa roles y usuarios semilla al levantar la aplicación."""
-    db = SessionLocal()
-    seed_roles(db)
-    seed_default_users(db)
-    db.close()
+# Nota: seed_roles y seed_default_users se ejecutan vía init_db.py en el Procfile
+# No ejecutar aquí porque las tablas aún no existen durante el startup de Alembic
