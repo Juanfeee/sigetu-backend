@@ -4,6 +4,7 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.base import Base
+from app.models.modelo_cita import Appointment
 
 class User(Base):
     """Entidad de usuario con relación a rol y citas asociadas."""
@@ -29,6 +30,6 @@ class User(Base):
     appointments = relationship(
         "Appointment",
         back_populates="student",
-        foreign_keys="Appointment.student_id",
+        foreign_keys=[Appointment.student_id],
         passive_deletes=True,
     )
